@@ -5,7 +5,7 @@ meta:
   license: CC0-1.0
   ks-version: 0.9
   endian: le
-  bit-endian: be
+  bit-endian: le
 doc: |
    Self 2017 uncompressed snapshot data (32-bit)
 doc-ref:
@@ -23,25 +23,26 @@ seq:
     type: vm_maps
   - id: new_generation_delim
     contents: "\n\f\nNew generation\n\f\n!"
-  - id: new_eden_bounds
+  - id: eden_bounds
     type: space_bounds
-  - id: new_from_bounds
+  - id: from_space_bounds
     type: space_bounds
-  - id: new_to_bounds
+  - id: to_space_bounds
     type: space_bounds
-  - id: new_eden_objects
-    size: new_eden_bounds.objs_size
-  - id: new_eden_bytes
-    size: new_eden_bounds.bytes_size
-  - id: new_to_objects
-    size: new_to_bounds.objs_size
+  - id: eden_objects
+    size: eden_bounds.objs_size
+  - id: eden_bytes
+    size: eden_bounds.bytes_size
+  - id: to_space_objects
+    size: to_space_bounds.objs_size
     doc: TODO to/from other way round if memory regions ordered that way
-  - id: new_to_bytes
-    size: new_to_bounds.bytes_size
-  - id: new_from_objects
-    size: new_from_bounds.objs_size
-  - id: new_from_bytes
-    size: new_from_bounds.bytes_size
+  - id: to_space_bytes
+    size: to_space_bounds.bytes_size
+  - id: from_space_objects
+    size: from_space_bounds.objs_size
+    type: from_obj_space
+  - id: from_space_bytes
+    size: from_space_bounds.bytes_size
   - id: old_generation_delim
     contents: "\n\f\nOld generation\n\f\n!"
   - id: num_old_spaces
@@ -52,9 +53,11 @@ seq:
     repeat-expr: num_old_spaces
   - id: old_space_objects
     size: old_spaces[0].objs_size
+    type: old_obj_space
     doc: TODO factor and repeat somehow...
   - id: old_space_bytes
     size: old_spaces[0].bytes_size
+    type: old_bytes_space
   - id: string_table_delim
     contents: "\n\f\nString table\n\f\n!"
   - id: string_table_buckets
@@ -152,7 +155,7 @@ types:
         type: u4
       - id: outer_activation_mirror
         type: u4
-      - id: block_activaation_mirror
+      - id: block_activation_mirror
         type: u4
       - id: proxy_mirror
         type: u4
@@ -202,6 +205,98 @@ types:
         value: old_objs_top - old_objs_bottom
       bytes_size:
         value: old_bytes_top - old_bytes_bottom
+  obj_header:
+    seq:
+      - id: tag
+        type: b2
+      - id: hash
+        type: b22
+      - id: age
+        type: b7
+      - id: marked
+        type: b1
+      - id: oop_map
+        type: u4
+  nmln:
+    seq:
+      - id: next
+        type: u4
+      - id: prev
+        type: u4
+  slot_desc:
+    seq:
+      - id: name
+        type: u4
+      - id: tag
+        type: b2
+      - id: type
+        type: b2
+        enum: slot_type
+      - id: is_vm_slot
+        type: b1
+      - id: is_parent
+        type: b1
+      - id: unused_bits
+        type: b24
+      - id: oop_data
+        type: u4
+      - id: annotation
+        type: u4
+  map:
+    seq:
+      - id: header
+        type: obj_header
+      - id: vtable
+        type: u4
+      - id: num_words_in_obj
+        type: u4
+      - id: num_words_of_slots
+        type: u4
+      - id: oop_annotation
+        type: u4
+      - id: add_slot_dependents
+        type: nmln
+      - id: map_chain
+        type: nmln
+      - id: dependents
+        type: u4
+      - id: slots
+        type: slot_desc
+        repeat: expr
+        repeat-expr: num_words_of_slots/4
+  lobby:
+    seq:
+      - id: header
+        type: obj_header
+  from_obj_space:
+    doc: |
+      0, 4, 8, c - int / vm
+      1, 5, 9, d - oop
+      2, 6, a, e - float / vm
+      3, 7, b, f - obj mark word
+      something is at file offset 0x2216
+    instances:
+      lobby:
+        pos: _root.vm_oops.lobby-1 - _root.from_space_bounds.old_objs_bottom
+        type: lobby
+      lobby_map:
+        type: map
+        pos: lobby.header.oop_map-1 - _root.from_space_bounds.old_objs_bottom
+      lobby_map2:
+        type: obj_header
+        pos: lobby_map.header.oop_map-1 - _root.from_space_bounds.old_objs_bottom
+  old_obj_space:
+    instances:
+      lms0:
+        type: obj_header
+        pos: _root.from_space_objects.lobby_map.slots[0].name-1 - _root.old_spaces[0].old_objs_bottom
+  old_bytes_space:
+    instances:
+      lms0s:
+        type: str
+        encoding: utf8
+        size: 15
+        pos: 0x22AB3C
   strings_bucket:
     seq:
       - id: num_strings
@@ -252,3 +347,8 @@ types:
         type: u4
       - id: assignment_map
         type: u4
+enums:
+  slot_type:
+    0: object
+    1: map
+    2: argument
