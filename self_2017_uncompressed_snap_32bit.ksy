@@ -7,8 +7,8 @@ meta:
   endian: le
   bit-endian: le
 doc: |
-   Self 2017 uncompressed snapshot data (32-bit)
-   PROTIP: load this into https://ide.kaitai.io/devel/ along with my self-core-gunzipped.bin and browse the tree!
+  Self 2017 uncompressed snapshot data (32-bit)
+  PROTIP: load this into https://ide.kaitai.io/devel/ along with my self-core-gunzipped.bin and browse the tree!
 doc-ref:
   - https://bibliography.selflanguage.org/_static/implementation.pdf#page=5 (helpful, but not to be trusted; out of date)
   - https://github.com/russellallen/self/blob/9daac0fd83931e7a3079af7def23fdc94e251074/vm/src/any/memory/universe.cpp#L574
@@ -70,7 +70,7 @@ seq:
   - id: vm_strings_delim
     contents: "\n\f\nVM strings\n\f\n!"
   - id: vm_strings
-    type: u4
+    type: vm_string
     repeat: expr
     repeat-expr: 182
   - id: vtbls_delim
@@ -262,10 +262,12 @@ types:
       - id: oop_annotation
         type: oop
     instances:
-      name:
+      name_obj:
         io: _root.old_space_objects._io
         type: string_obj
         pos: oop_name.addr - _root.old_space_objects.base
+      name:
+        value: name_obj.bytes
   map_map:
     seq:
       - id: header
@@ -313,6 +315,17 @@ types:
         encoding: utf8
         size: len.value
         pos: p_bytes - _root.old_space_bytes.base
+  vm_string:
+    seq:
+      - id: oop
+        type: oop
+    instances:
+      string_obj:
+        io: _root.old_space_objects._io
+        type: string_obj
+        pos: oop.addr - _root.old_space_objects.base
+      bytes:
+        value: string_obj.bytes
   from_obj_space:
     doc: |
       0, 4, 8, c - int / vm
