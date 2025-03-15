@@ -8,7 +8,9 @@ meta:
   bit-endian: le
 doc: |
    Self 2017 uncompressed snapshot data (32-bit)
+   PROTIP: load this into https://ide.kaitai.io/devel/ along with my self-core-gunzipped.bin and browse the tree!
 doc-ref:
+  - https://bibliography.selflanguage.org/_static/implementation.pdf#page=5 (helpful, but not to be trusted; out of date)
   - https://github.com/russellallen/self/blob/9daac0fd83931e7a3079af7def23fdc94e251074/vm/src/any/memory/universe.cpp#L574
 seq:
   - id: misc_data_delim
@@ -92,94 +94,97 @@ types:
   vm_oops:
     seq:
       - id: lobby
-        type: u4
+        type: oop
       - id: nil
-        type: u4
+        type: oop
       - id: true
-        type: u4
+        type: oop
       - id: false
-        type: u4
+        type: oop
       - id: string
-        type: u4
+        type: oop
       - id: assignment
-        type: u4
+        type: oop
       - id: obj_vector
-        type: u4
+        type: oop
       - id: byte_vector
-        type: u4
+        type: oop
       - id: block_traits
-        type: u4
+        type: oop
       - id: dead_block
-        type: u4
+        type: oop
       - id: process
-        type: u4
+        type: oop
       - id: profiler
-        type: u4
+        type: oop
       - id: outer_activation
-        type: u4
+        type: oop
       - id: block_activation
-        type: u4
+        type: oop
       - id: proxy
-        type: u4
+        type: oop
       - id: fct_proxy
-        type: u4
+        type: oop
       - id: literals
-        type: u4
+        type: oop
       - id: slot_annotation
-        type: u4
+        type: oop
       - id: object_annotation
-        type: u4
+        type: oop
       - id: error
-        type: u4
+        type: oop
       - id: assignment_mirror
-        type: u4
+        type: oop
       - id: block_mirror
-        type: u4
+        type: oop
       - id: byte_vector_mirror
-        type: u4
+        type: oop
       - id: outer_method_mirror
-        type: u4
+        type: oop
       - id: block_method_mirror
-        type: u4
+        type: oop
       - id: float_mirror
-        type: u4
+        type: oop
       - id: object_vector_mirror
-        type: u4
+        type: oop
       - id: slots_mirror
-        type: u4
+        type: oop
       - id: smi_mirror
-        type: u4
+        type: oop
       - id: string_mirror
-        type: u4
+        type: oop
       - id: process_mirror
-        type: u4
+        type: oop
       - id: outer_activation_mirror
-        type: u4
+        type: oop
       - id: block_activation_mirror
-        type: u4
+        type: oop
       - id: proxy_mirror
-        type: u4
+        type: oop
       - id: fct_proxy_mirror
-        type: u4
+        type: oop
       - id: profiler_mirror
-        type: u4
+        type: oop
       - id: mirror_mirror
-        type: u4
+        type: oop
       - id: id_array
-        type: u4
+        type: oop
       - id: bug_hunt_names
-        type: u4
+        type: oop
       - id: compile_with_sic_names
-        type: u4
+        type: oop
   vm_maps:
+    doc: |
+      These are pointers to pointers to map vtables.
+      Dereferencing these once gives addresses in map_vtbls.
     seq:
-      - id: oop_smi_map
+      - id: pp_smi_map_vtbl
         type: u4
-      - id: oop_float_map
+      - id: pp_float_map_vtbl
         type: u4
-      - id: oop_mark_map
+      - id: pp_mark_map_vtbl
         type: u4
-      - id: oop_map_map
+      - id: pp_map_map_vtbl
         type: u4
   space_bounds:
     doc: |
@@ -216,17 +221,31 @@ types:
       - id: marked
         type: b1
       - id: oop_map
-        type: u4
+        type: oop
   nmln:
     seq:
       - id: next
         type: u4
       - id: prev
         type: u4
+  int:
+    seq:
+      - id: value_x4
+        type: u4
+    instances:
+      value:
+        value: value_x4 / 4
+  oop:
+    seq:
+      - id: addr_plus_1
+        type: u4
+    instances:
+      addr:
+        value: addr_plus_1 - 1
   slot_desc:
     seq:
-      - id: name
-        type: u4
+      - id: oop_name
+        type: oop
       - id: tag
         type: b2
       - id: type
@@ -239,8 +258,19 @@ types:
       - id: unused_bits
         type: b24
       - id: oop_data
-        type: u4
-      - id: annotation
+        type: oop
+      - id: oop_annotation
+        type: oop
+    instances:
+      name:
+        io: _root.old_space_objects._io
+        type: string_obj
+        pos: oop_name.addr - _root.old_space_objects.base
+  map_map:
+    seq:
+      - id: header
+        type: obj_header
+      - id: vtable
         type: u4
   map:
     seq:
@@ -249,9 +279,9 @@ types:
       - id: vtable
         type: u4
       - id: num_words_in_obj
-        type: u4
-      - id: num_words_of_slots
-        type: u4
+        type: int
+      - id: num_slots
+        type: int
       - id: oop_annotation
         type: u4
       - id: add_slot_dependents
@@ -263,40 +293,61 @@ types:
       - id: slots
         type: slot_desc
         repeat: expr
-        repeat-expr: num_words_of_slots/4
+        repeat-expr: num_slots.value
   lobby:
     seq:
       - id: header
         type: obj_header
+  string_obj:
+    seq:
+      - id: header
+        type: obj_header
+      - id: len
+        type: int
+      - id: p_bytes
+        type: u4
+    instances:
+      bytes:
+        io: _root.old_space_bytes._io
+        type: str
+        encoding: utf8
+        size: len.value
+        pos: p_bytes - _root.old_space_bytes.base
   from_obj_space:
     doc: |
       0, 4, 8, c - int / vm
       1, 5, 9, d - oop
       2, 6, a, e - float / vm
       3, 7, b, f - obj mark word
-      something is at file offset 0x2216
     instances:
+      base:
+        value: _root.from_space_bounds.old_objs_bottom
       lobby:
-        pos: _root.vm_oops.lobby-1 - _root.from_space_bounds.old_objs_bottom
+        pos: _root.vm_oops.lobby.addr -base
         type: lobby
       lobby_map:
         type: map
-        pos: lobby.header.oop_map-1 - _root.from_space_bounds.old_objs_bottom
+        pos: lobby.header.oop_map.addr -base
       lobby_map2:
+        type: map_map
+        pos: lobby_map.header.oop_map.addr -base
+      globals:
         type: obj_header
-        pos: lobby_map.header.oop_map-1 - _root.from_space_bounds.old_objs_bottom
+        pos: lobby_map.slots[1].oop_data.addr -base
   old_obj_space:
     instances:
-      lms0:
-        type: obj_header
-        pos: _root.from_space_objects.lobby_map.slots[0].name-1 - _root.old_spaces[0].old_objs_bottom
+      base:
+        value: _root.old_spaces[0].old_objs_bottom
+      string:
+        type: string_obj
+        pos: _root.vm_oops.string.addr -base
+      globals_map:
+        type: map
+        pos: _root.from_space_objects.globals.oop_map.addr -base
   old_bytes_space:
     instances:
-      lms0s:
-        type: str
-        encoding: utf8
-        size: 15
-        pos: 0x22AB3C
+      base:
+        value: _root.old_spaces[0].old_bytes_bottom
   strings_bucket:
     seq:
       - id: num_strings
