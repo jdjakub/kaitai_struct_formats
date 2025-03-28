@@ -89,7 +89,13 @@ seq:
 instances:
   maps_are_canonical:
     value: canonical_char != 0
-    
+  test_new_obj:
+    type: deref_oop(_root.vm_oops.true.addr,"header")
+  tno_map:
+    type: deref_oop(test_new_obj.x.contents.as<obj_header>.oop_map.addr,"map")
+  test_old_obj:
+    type: deref_oop(0x55769F8,"map")
+  
 types:
   vm_oops:
     seq:
@@ -242,6 +248,7 @@ types:
     instances:
       addr:
         value: addr_plus_1 - 1
+    -webide-representation: '{addr}'
   slot_desc:
     seq:
       - id: oop_name
@@ -268,6 +275,7 @@ types:
         pos: oop_name.addr - _root.old_space_objects.base
       name:
         value: name_obj.bytes
+    -webide-representation: '{name}'
   map_map:
     seq:
       - id: header
@@ -326,6 +334,40 @@ types:
         pos: oop.addr - _root.old_space_objects.base
       bytes:
         value: string_obj.bytes
+    -webide-representation: '{bytes}'
+  deref_oop:
+    params:
+      - id: addr
+        type: u4
+      - id: type_name
+        type: str
+    instances:
+      in_old_space:
+        value: _root.old_spaces[0].old_objs_bottom <= addr and addr < _root.old_spaces[0].old_objs_top
+      x:
+        type:
+          switch-on: in_old_space
+          cases:
+            true:  deref_oop_x( _root.old_space_objects,    _root.old_spaces[0].old_objs_bottom,type_name)
+            false: deref_oop_x(_root.from_space_objects,_root.from_space_bounds.old_objs_bottom,type_name)
+  deref_oop_x:
+    params:
+      - id: space
+        type: struct
+      - id: base
+        type: u4
+      - id: type_name
+        type: str
+    instances:
+      contents:
+        io: space._io
+        pos: _parent.addr -base
+        type:
+          switch-on: type_name
+          cases:
+            '"header"': obj_header
+            '"map"': map
+            '"string"': string_obj
   from_obj_space:
     doc: |
       0, 4, 8, c - int / vm
